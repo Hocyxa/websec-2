@@ -1,65 +1,65 @@
-let favouriteStops=[];
-let allStops =[];
+let favouriteStops = [];
+let allStops = [];
 let myMap;
 ymaps.ready(initMap);
 
 let placemarks = new Map();
 
 
-async function initMap() {
+async function initMap(){
     if(localStorage.getItem('saved')!=null){
         favouriteStops = JSON.parse(localStorage.getItem('saved'))
     }
     await initSaved()
-    myMap = new ymaps.Map("Map", {
+    myMap = new ymaps.Map("Map",{
         center: [53.202810, 50.109185], 
         zoom: 16,
         controls: ['geolocationControl', 'typeSelector']
     });
 
-    await getAllStops().then(async stops => {
+    await getAllStops().then(async stops =>{
         let arrStop = stops.getElementsByTagName("stop")
-        for (let i = 0; i < arrStop.length; i++) {
-            const KS_ID = arrStop[i].getElementsByTagName("KS_ID")[0].textContent
-            const title_station = arrStop[i].getElementsByTagName("title")[0].textContent
+        for(const stop of arrStop){
+            const KS_ID = stop.getElementsByTagName("KS_ID")[0].textContent
+            const title_station = stop.getElementsByTagName("title")[0].textContent
             const transferObj = {
                 "KS_ID":KS_ID,
                 "title_station":title_station,
-                "adjacent_street": arrStop[i].getElementsByTagName("adjacentStreet")[0].textContent,
-                "direction": arrStop[i].getElementsByTagName("direction")[0].textContent,
-                "x": arrStop[i].getElementsByTagName("latitude")[0].textContent,
-                "y": arrStop[i].getElementsByTagName("longitude")[0].textContent
+                "adjacent_street": stop.getElementsByTagName("adjacentStreet")[0].textContent,
+                "direction": stop.getElementsByTagName("direction")[0].textContent,
+                "x": stop.getElementsByTagName("latitude")[0].textContent,
+                "y": stop.getElementsByTagName("longitude")[0].textContent
             }
             allStops.push(transferObj)
             localStorage.setItem("res", JSON.stringify(allStops))
             let placemark = new ymaps.Placemark(
-                [arrStop[i].getElementsByTagName("latitude")[0].textContent, arrStop[i].getElementsByTagName("longitude")[0].textContent],
+                [stop.getElementsByTagName("latitude")[0].textContent, stop.getElementsByTagName("longitude")[0].textContent],
                 {
                     balloonContentHeader: "<img id='img_plm_"+KS_ID+"' src='images/star.png' onclick='Save("+JSON.stringify(transferObj)+")' alt=\"photo\"'/>"+
                         title_station,
-                    balloonContentBody: (
-                        "Остановка " + arrStop[i].getElementsByTagName("adjacentStreet")[0].textContent + " " 
-                        + arrStop[i].getElementsByTagName("direction")[0].textContent),
-                    hintContent: arrStop[i].getElementsByTagName("title")[0].textContent
+                    balloonContentBody:(
+                        "Остановка " + stop.getElementsByTagName("adjacentStreet")[0].textContent + " " 
+                        + stop.getElementsByTagName("direction")[0].textContent),
+                    hintContent: stop.getElementsByTagName("title")[0].textContent
                 }
             );
 
-            setPlacemark(placemark, arrStop[i])
+            setPlacemark(placemark, stop)
 
-            placemark.events.add('balloonopen', function (e) {
+            placemark.events.add('balloonopen', function(e){
                 placemark.properties.set('balloonContentFooter', "Идет загрузка...");
-                getInfoByStop(KS_ID).then((stop) => {
+                getInfoByStop(KS_ID).then((stop) =>{
                     let transportContent = "";
-                    let transport = stop.getElementsByTagName("transport")
-                    if(transport.length === 0){
+                    let transports = stop.getElementsByTagName("transport")
+                    if(transports.length === 0){
                         transportContent += "<div class='popup'>В ближайшее время транспорта не будет<br/></div>"
                     }
                     else{
-                        for (let i = 0; i < transport.length; i++) {
+                        for(const transport of transports){
                             transportContent += 
-                            "<div class='popup'>" + transport[i].getElementsByTagName("type")[0].textContent + " " 
-                            + transport[i].getElementsByTagName("number")[0].textContent + " будет через " 
-                            + transport[i].getElementsByTagName("time")[0].textContent + "мин." + "<br/></div>"
+                            "<div class='popup'>" + transport.getElementsByTagName("type")[0].textContent + " " 
+                            + transport.getElementsByTagName("number")[0].textContent + " будет через " 
+                            + transport.getElementsByTagName("time")[0].textContent + "мин." + "<br/></div>"
                         }
                     }
                     placemark.properties.set('balloonContentFooter', transportContent);
@@ -78,7 +78,7 @@ async function initMap() {
 
 function checkKSInSaved(KS_ID){
     if(favouriteStops !== null){
-        return !!favouriteStops.filter(function (item) {
+        return !!favouriteStops.filter(function(item){
             return item.KS_ID === KS_ID;
         }).length;
     }
@@ -86,13 +86,13 @@ function checkKSInSaved(KS_ID){
 
 
 function Save(transferObj){
-    let img = document.getElementById('img_plm_'+transferObj.KS_ID)
+    let image = document.getElementById('img_plm_'+transferObj.KS_ID)
     if(checkKSInSaved(transferObj.KS_ID)){
-        img.src = "images/star.png"
-        favouriteStops = favouriteStops.filter((item) => { return item.KS_ID !== transferObj.KS_ID; });
+        image.src = "images/star.png"
+        favouriteStops = favouriteStops.filter((item) =>{ return item.KS_ID !== transferObj.KS_ID; });
         localStorage.setItem("saved", JSON.stringify(favouriteStops))
-    }else {
-        img.src = "images/favourite.png"
+    }else{
+        image.src = "images/favourite.png"
         favouriteStops.push(transferObj)
         localStorage.setItem("saved", JSON.stringify(favouriteStops))
         
@@ -119,14 +119,14 @@ function setPlacemark(placemark, stop){
 
 async function getAllStops(){
     const response = await fetch("https://tosamara.ru/api/v2/classifiers/stopsFullDB.xml");
-    const str = await response.text();
-    return new DOMParser().parseFromString(str, "application/xml");
+    const res = await response.text();
+    return new DOMParser().parseFromString(res, "application/xml");
 }
 
-async function getInfoByStop(KS_ID) {
+async function getInfoByStop(KS_ID){
     const response = await fetch(`https://tosamara.ru/api/v2/xml?method=getFirstArrivalToStop&KS_ID=${KS_ID}&os=android&clientid=test&authkey=${SHA1(KS_ID + "just_f0r_tests")}`);
-    const str = await response.text();
-    return new DOMParser().parseFromString(str, "application/xml");
+    const res = await response.text();
+    return new DOMParser().parseFromString(res, "application/xml");
 }
 
 
@@ -135,18 +135,18 @@ async function initSaved(){
     let window_saved_stop = document.querySelector('.menu-stops');
     window_saved_stop.innerHTML = "<button id=button onclick='activateSearch()'>Поиск</button>";
     window_saved_stop.innerHTML += "<h2>Избранное</h2>";
-    for (let i = 0; i < favouriteStops.length; i++){
+    for(const stop of favouriteStops){
         const updList = document.createElement('div');
                 updList.innerHTML = `
                     <div class="saved-stop-info">
-                        <h2>${favouriteStops[i].title_station}</h2>
-                        <h4>${favouriteStops[i].adjacent_street} ${favouriteStops[i].direction}</h4>
+                        <h2>${stop.title_station}</h2>
+                        <h4>${stop.adjacent_street} ${stop.direction}</h4>
                     </div>
 			    `;
-        updList.addEventListener("click", ()=>{
-            myMap.setCenter([favouriteStops[i].x, favouriteStops[i].y]);
+        updList.addEventListener("click",()=>{
+            myMap.setCenter([stop.x, stop.y]);
             myMap.setZoom(17);
-            placemarks.get(favouriteStops[i].KS_ID).balloon.open();
+            placemarks.get(stop.KS_ID).balloon.open();
         })
         window_saved_stop.append(updList)
     }
@@ -164,7 +164,7 @@ function showHiddMenu()
 }
 
 
-function activateSearch() {
+function activateSearch(){
     let listElem = document.querySelector('.menu-stops');
     listElem.innerHTML = `
     <button onclick='initSaved()' style='margin:center;'>Закрыть</button>
@@ -173,22 +173,22 @@ function activateSearch() {
     `;
     let foundList = document.querySelector("#found-stops");
     let searchField = document.querySelector("#search-input");
-    searchField.addEventListener("input", () => {
+    searchField.addEventListener("input",() =>{
         foundList.innerHTML = '';
-        for (let i = 0; i < allStops.length; i++) {
-            if (allStops[i].title_station.toLowerCase().includes(searchField.value.toLowerCase())) {
+        for(const stop of allStops){
+            if(stop.title_station.toLowerCase().includes(searchField.value.toLowerCase())){
                 const updList = document.createElement('div');
                 updList.innerHTML = `
                     <div class="saved-stop-info">
-                        <h2>${allStops[i].title_station}</h2>
-                        <h4>${allStops[i].adjacent_street} ${allStops[i].direction}</h4>
+                        <h2>${stop.title_station}</h2>
+                        <h4>${stop.adjacent_street} ${stop.direction}</h4>
                     </div>
 			    `;
                 foundList.appendChild(updList);
-                updList.addEventListener('click', () => { 
-                    myMap.setCenter([allStops[i].x, allStops[i].y]);
+                updList.addEventListener('click',() =>{ 
+                    myMap.setCenter([stop.x, stop.y]);
                     myMap.setZoom(19);
-                    placemarks.get(allStops[i].KS_ID).balloon.open();
+                    placemarks.get(stop.KS_ID).balloon.open();
                 });
             }
         }
